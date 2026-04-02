@@ -44,7 +44,8 @@ class Configuration:
 
 
 def remove_qr_images(dir: str, config: Configuration = Configuration()):
-    print(f"Searching for photo in {dir}...")
+    if config.verbose:
+        print(f"Searching for photo in {dir}...")
     if not os.path.exists(dir):
         return
     IMAGE_EXTENSIONS: list = ['.png', '.jpg', '.jpeg', '.tif', '.gif', '.bmp', '.heic']
@@ -55,25 +56,30 @@ def remove_qr_images(dir: str, config: Configuration = Configuration()):
             if file_ext.lower() not in IMAGE_EXTENSIONS:
                 continue
             file_fullname = os.path.join(dir_path, file_name)
-            print(f"Decoding {file_fullname}...")
+            if config.verbose:
+                print(f"Decoding {file_fullname}...")
             try:
                 img = cv2.imread(file_fullname)
                 if img is None:
                     continue
                 codes = decode(img)
                 if codes:
-                    print(f"QR code detected.")
+                    if config.verbose:
+                        print(f"QR code detected.")
                     if config.permanent_delete:
-                        print(f"Deleting {file_fullname}...")
+                        if config.verbose:
+                            print(f"Deleting {file_fullname}...")
                         os.remove(file_fullname)
                     else:
-                        print(f"Moving {file_fullname} to trash...")
+                        if config.verbose:
+                            print(f"Moving {file_fullname} to trash...")
                         if trash_dir is None or len(trash_dir) <= 0:
                             send2trash(file_fullname)
                         else:
                             shutil.move(file_fullname, os.path.join(trash_dir, file_name))
             except Exception as ex:
-                print(f"Exception: {str(ex)}")
+                if config.verbose:
+                    print(f"Exception: {str(ex)}")
 
 if __name__=="__main__":
     parser: optparse.OptionParser = optparse.OptionParser('%prog [options] photo_directory')
