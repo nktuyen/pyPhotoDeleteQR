@@ -6,6 +6,10 @@ import optparse
 import concurrent.futures
 import shutil
 from send2trash import send2trash
+import numpy as np
+from qrdet import QRDetector
+
+detector = QRDetector(model_size='s')
 
 class Configuration:
     def __init__(self):
@@ -13,6 +17,7 @@ class Configuration:
         self._permanent_delete: bool = False
         self._recursive: bool = False
         self._trash_dir: str = ""
+        self._detector: int = 0
     
     @property
     def verbose(self) -> bool:
@@ -42,6 +47,13 @@ class Configuration:
     def trash_dir(self, val: str):
         self._trash_dir = val
 
+    @property
+    def detector(self) -> int:
+        return self._detector
+    @detector.setter
+    def detector(self, val: int):
+        self._detector = val
+
 
 def remove_qr_images(dir: str, config: Configuration = Configuration()):
     if config.verbose:
@@ -50,6 +62,7 @@ def remove_qr_images(dir: str, config: Configuration = Configuration()):
         return
     IMAGE_EXTENSIONS: list = ['.png', '.jpg', '.jpeg', '.tif', '.gif', '.bmp', '.heic']
     trash_dir: str = config.trash_dir
+    detected: bool = False
     for dir_path, dir_names, file_names in os.walk(dir):
         for file_name in file_names:
             _, file_ext = os.path.splitext(file_name)
@@ -59,11 +72,19 @@ def remove_qr_images(dir: str, config: Configuration = Configuration()):
             if config.verbose:
                 print(f"Decoding {file_fullname}...")
             try:
-                img = cv2.imread(file_fullname)
+                img = cv2.imdecode(np.fromfile(file_fullname, np.uint8), cv2.IMREAD_UNCHANGED)
                 if img is None:
                     continue
-                codes = decode(img)
-                if codes:
+                detected = False
+                if config.detector == 1:
+                    codes = decode(img)
+                    if codes:
+                        detected = True
+                elif config.detector == 2:
+                    detections = detector.detect(image=img, is_brg=True)
+                    if detections is not None and len(detections) > 0:
+                        detected = True
+                if detected:
                     if config.verbose:
                         print(f"QR code detected.")
                     if config.permanent_delete:
@@ -80,6 +101,9 @@ def remove_qr_images(dir: str, config: Configuration = Configuration()):
             except Exception as ex:
                 if config.verbose:
                     print(f"Exception: {str(ex)}")
+        if config.recursive:
+            for dir_name in dir_names:
+                remove_qr_images(os.path.join(dir_path, dir_name), config)
 
 if __name__=="__main__":
     parser: optparse.OptionParser = optparse.OptionParser('%prog [options] photo_directory')
@@ -88,10 +112,11 @@ if __name__=="__main__":
     parser.add_option('--recursive', '-r', action='store_false', help='Recursively walk directories')
     parser.add_option('--jobs', '-j', default=1, help='Number of concurence jobs. Default is 1')
     parser.add_option('--trash', '-t', default="", help="Trash directory to move detected files")
+    parser.add_option('--detector', '', default=1, help="Detector to be used. Default is 1. 1=pyzbar, 2=YOLO")
 
     opts, args = parser.parse_args()
-    print(opts)
-    print(args)
+    #print(opts)
+    #print(args)
 
     if len(args)<=0:
         print("Error: There is no photo directory specified.")
@@ -102,6 +127,10 @@ if __name__=="__main__":
     config.permanent_delete = True if opts.delete is not None else False
     config.recursive = True if opts.recursive is not None else False
     config.trash_dir = opts.trash
+    try:
+        config.detector = int(opts.detector)
+    except:
+        config.detector = 1
 
     for dir in args:
         dir_fullname = os.path.abspath(dir)
