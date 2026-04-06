@@ -63,7 +63,6 @@ def is_money_transfer(text):
         if re.search(pattern, text, re.IGNORECASE):
             score += 1
             found_elements.append(key)
-    # Nếu khớp từ 3 nhóm dấu hiệu trở lên thì tỷ lệ là bill chuyển tiền rất cao
     is_transfer = score >= 3
     return is_transfer, found_elements
 
@@ -151,7 +150,6 @@ if __name__=="__main__":
     parser.add_option('--recursive', '-r', action='store_false', help='Recursively walk directories')
     parser.add_option('--jobs', '-j', default=1, help='Number of concurence jobs. Default is 1')
     parser.add_option('--trash', '-t', default="", help="Trash directory to move detected files")
-    parser.add_option('--detector', '', default=1, help="Detector to be used. Default is 1. 1=pyzbar, 2=YOLO")
 
     opts, args = parser.parse_args()
 
